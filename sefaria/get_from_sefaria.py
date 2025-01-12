@@ -5,44 +5,52 @@ class Book:
     def __init__(
             self, book_title: str, lang: str,
             he_title: str|None = None,
-            #categories: list|None = None
+            categories: list|None = None
             ) -> None:
         self.book_title = book_title
+        self.metadata = {}
         self.lang = lang[:2]
         self.long_lang = lang
         self.book_content = []
         self.sefaria_api = SefariaApi()
         self.he_title = he_title
-        #self.categories = categories
+        self.categories = categories
         self.shape = self.sefaria_api.get_shape(self.book_title)
         self.iscomplex = bool(self.shape[0].get("isComplex"))
         self.index = self.sefaria_api.get_index(self.book_title)
-        #self.iscomplex = bool(self.index["schema"].get("nodes"))
+        self.iscomplex = bool(self.index["schema"].get("nodes"))
 
-    def get_metadata(self) -> dict:
-        metadata = {}
-        era_dict = {"GN" : {"en":"Gaonim","he": "גאונים"},
+    def get_metadata(self) -> dict[str, str]:
+        era_dict = {
+             "GN" : {"en":"Gaonim","he": "גאונים"},
              "RI" : {"en":"Rishonim", "he": "ראשונים"},
              "AH" : {"en":"Achronim", "he": "אחרונים"},
              "T" : {"en":"Tannaim", "he": "תנאים"},
              "T" : {"en":"Amoraim", "he": "אמוראים"},
-             "CO" : {"en":"Contemporary", "he": "?"}}
+             "CO" : {"en":"Contemporary", "he": "?"}
+            }
         authors = self.index.get("authors")
-        enDesc = self.index.get("enDesc")
+        if authors:
+            self.metadata["authors"] = "&".join(authors)
+        self.metadata["title"] = self.book_title if self.lang != "he" else self.he_title
+        long_Desc = self.index.get(f"{self.lang}Desc")
         ShortDesc = self.index.get(f"{self.lang}ShortDesc")
         era = self.index.get("era")
-        if self.lang != "he" and enDesc:
-            metadata["--comments"] = enDesc
+        if long_Desc:
+            self.metadata["comments"] = long_Desc
         elif ShortDesc:
-            metadata["--comments"] = ShortDesc
-        if authors:
-            metadata["--authors"] = "&".join(authors)
-        metadata["--language"] = self.lang
+            self.metadata["comments"] = ShortDesc
+        categories = self.index.get("categories")
+        if self.categories and self.lang == "he":
+            self.metadata["tags"] = ",".join(self.categories)
+        elif categories:
+            self.metadata["tags"] = ",".join(categories)
         if era:
             era_in_dict = era_dict.get(era)
             if era_in_dict:
-                metadata["--series"] = era_in_dict[self.lang]
-        return metadata
+                self.metadata["series"] = era_in_dict[self.lang]
+        self.metadata["language"] = self.lang
+        return self.metadata
 
     def process_book(self) -> list:
         if not self.iscomplex:
@@ -54,7 +62,10 @@ class Book:
     
     def process_simple_book(self) -> None:
         index = self.index
-        section_names = self.sefaria_api.get_name(self.book_title).get("heSectionNames")
+        if self.lang == "he":
+            section_names = self.sefaria_api.get_name(self.book_title).get("heSectionNames")
+        else:
+            section_names = "" #to do
         depth = index['schema']['depth']
         text = self.sefaria_api.get_book(self.book_title, self.long_lang)
         # add book title
@@ -85,7 +96,7 @@ class Book:
                     node_title = i.get("text")
 
         if not node_title:
-            node_title = self.shape[0]["chapters"][self.node_num]["heTitle"]
+            node_title = self.shape[0]["chapters"][self.node_num]["heTitle"] if self.lang == "he" else self.shape[0]["chapters"][self.node_num]["title"]
             node_title = node_title.split(",")[-1].strip()
 
 
@@ -109,7 +120,7 @@ class Book:
                 for num in range(1, node_len +1):
                     key.append(str(num))
                     node_index = ", ".join(key)
-                    section_names = self.sefaria_api.get_name(node_index)["heSectionNames"]
+                    section_names = self.sefaria_api.get_name(node_index)["heSectionNames"] if self.lang == "he" else "" #to do
                     section_name = section_names[0]
                     text = self.sefaria_api.get_book(node_index, self.long_lang)
                     text = text.get("versions")
@@ -119,7 +130,7 @@ class Book:
                         )
                         self.recursive_sections(section_names, text[0]['text'], depth-1, level+1)
                     
-                    key.pop(-1)
+                    key.pop()
             else:
                 if node_title:
                     self.book_content.append(
@@ -135,7 +146,7 @@ class Book:
                 text = text.get("versions")
                 if text:
                     self.recursive_sections(section_names, text[0]['text'], depth, level+1)
-                key.pop(-1)
+                key.pop()
             self.node_num += 1
 
     def recursive_sections(
@@ -157,8 +168,5 @@ class Book:
                         if depth>1:                        
                             self.book_content.append(f"<h{min(level, 6)}>{section_names[-depth]} {letter}</h{min(level, 6)}>\n")
                         elif section_names[-depth] != 'שורה' and section_names[-depth] != 'פירוש' and section_names[-depth] != 'פסקה':
-                            self.book_content.append(f'({letter}) ')
-
-                            
+                            self.book_content.append(f'({letter}) ')         
                     self.recursive_sections(section_names, item, depth-1,level+1)
-

@@ -23,7 +23,7 @@ def recursive_register_categories(
             tree.append(index["heCategory"])
             for item in index["contents"]:
                 recursive_register_categories(item, data, tree)
-            tree.pop(-1)
+            tree.pop()
         if index.get("title"):
             data.append(
                 {
