@@ -34,6 +34,19 @@ all_books = sefaria_api.SefariaApi().table_of_contents()
 sorted_toc = utils.recursive_register_categories(all_books)
 lang = "hebrew"
 book_dir = ' dir="rtl"' if lang == "hebrew" else ""
+book_ins = get_from_sefaria.Book("Malbim Beur Hamilot on Habakkuk", lang)
+get_ebook = book_ins.process_book()
+metadata = book_ins.get_metadata()
+soup = BeautifulSoup(f'<html lang={lang[:2]}><head><title></title></head><body{book_dir}>{"".join(get_ebook)}</body></html>', "html.parser")
+
+soup = soup.prettify()
+book_name = "test_4"
+file_name = os.path.join("html", f"{book_name}.html")
+epub_name = os.path.join("epub", f"{book_name}.epub")
+with open(file_name, "w", encoding="utf-8") as f:
+    f.write(str(soup))
+#to_ebook(file_name, epub_name, metadata)
+"""
 for book in sorted_toc:
     print(book["en_title"])
     print(book["he_title"])
@@ -53,3 +66,4 @@ for book in sorted_toc:
     with open(file_name, "w", encoding="utf-8") as f:
         f.write(str(soup))
     to_ebook(file_name, epub_name, metadata)
+"""

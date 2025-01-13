@@ -6,3 +6,5 @@
 - more versions
 - more metadata
 - more formats
+- fix:
+-- Malbim Beur Hamilot on Habakkuk
