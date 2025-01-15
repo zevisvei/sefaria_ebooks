@@ -34,3 +34,8 @@ class SefariaApi:
         url = f"{self.base_url}links/{book_title}"
         response = requests.get(url, headers=self.headers)
         return response.json()
+    
+    def get_terms(self, name: str) -> dict:
+        url = f"{self.base_url}terms/{name}"
+        response = requests.get(url, headers=self.headers)
+        return response.json()
