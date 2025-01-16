@@ -4,19 +4,21 @@ from .utils import to_daf, to_gematria, has_value
 
 class Book:
     def __init__(
-            self,
-            book_title: str,
-            lang: str,
-            he_title: str | None = None,
-            categories: list | None = None,
-            get_links: list | bool = False
-            ) -> None:
+        self,
+        book_title: str,
+        lang: str,
+        he_title: str | None = None,
+        categories: list | None = None,
+        get_links: list | bool = False,
+    ) -> None:
 
         self.book_title = book_title
         self.metadata = {}
         self.lang = lang[:2]
         self.long_lang = lang
-        self.section_names_lang = self.lang if self.lang in ("he", "en") else "en"
+        self.section_names_lang = (self.lang
+                                   if self.lang in ("he", "en")
+                                   else "en")
         self.book_content = []
         self.sefaria_api = SefariaApi()
         self.he_title = he_title
@@ -27,24 +29,28 @@ class Book:
         if self.exists:
             self.is_complex = bool(self.shape[0].get("isComplex"))
             self.index = self.sefaria_api.get_index(self.book_title)
-            self.is_complex_and_simple = bool(self.is_complex != bool(self.index["schema"].get("nodes")))
+            self.is_complex_and_simple = bool(
+                self.is_complex != bool(self.index["schema"].get("nodes"))
+            )
 
     def get_metadata(self) -> dict[str, str] | None:
         if not self.exists:
             return
         era_dict = {
-             "GN": {"en": "Gaonim", "he": "גאונים"},
-             "RI": {"en": "Rishonim", "he": "ראשונים"},
-             "AH": {"en": "Achronim", "he": "אחרונים"},
-             "T": {"en": "Tannaim", "he": "תנאים"},
-             "A":  {"en": "Amoraim", "he": "אמוראים"},
-             "CO":  {"en": "Contemporary", "he": "מחברי זמננו"}
-            }
+            "GN": {"en": "Gaonim", "he": "גאונים"},
+            "RI": {"en": "Rishonim", "he": "ראשונים"},
+            "AH": {"en": "Achronim", "he": "אחרונים"},
+            "T": {"en": "Tannaim", "he": "תנאים"},
+            "A": {"en": "Amoraim", "he": "אמוראים"},
+            "CO": {"en": "Contemporary", "he": "מחברי זמננו"},
+        }
         authors = self.index.get("authors")
         if authors:
             self.metadata["authors"] = "&".join(authors)
 
-        if self.section_names_lang == "he" and (self.he_title or self.shape[0].get("heBook")):
+        if self.section_names_lang == "he" and (
+            self.he_title or self.shape[0].get("heBook")
+        ):
             self.metadata["title"] = self.he_title or self.shape[0].get("heBook")
         else:
             self.metadata["title"] = self.book_title
@@ -104,17 +110,17 @@ class Book:
             self.process_simple_book()
         return self.book_content
 
-    def process_complex_and_simple_book(
-            self,
-            node: dict,
-            level: int = 0
-            ) -> None:
-        section_names = self.sefaria_api.get_name(self.book_title)["heSectionNames"] if self.section_names_lang == "he" else self.sefaria_api.get_name(self.book_title)["sectionNames"]
-        nodes = node['nodes']
+    def process_complex_and_simple_book(self, node: dict, level: int = 0) -> None:
+        section_names = (
+            self.sefaria_api.get_name(self.book_title)["heSectionNames"]
+            if self.section_names_lang == "he"
+            else self.sefaria_api.get_name(self.book_title)["sectionNames"]
+        )
+        nodes = node["nodes"]
         key = [self.book_title]
         for node in nodes:
             node_level = level
-            node_titles = node.get('titles')
+            node_titles = node.get("titles")
             node_title = None
             if node_titles:
                 node_title = self.parse_titles(node_titles)
@@ -125,7 +131,7 @@ class Book:
                 self.book_content.append(
                     f"<h{min(node_level, 6)}>{node_title}</h{min(node_level, 6)}>\n"
                 )
-            depth = node['depth']
+            depth = node["depth"]
             if node["key"] == "default":
                 node_len = self.shape[0]["length"]
                 key.append(f"1-{node_len}")
@@ -139,9 +145,9 @@ class Book:
             self.set_series(text)
             text = text.get("versions")
             if text:
-                text = text[0]['text']
+                text = text[0]["text"]
                 if has_value(text):
-                    self.recursive_sections(section_names, text, depth, node_level+1)
+                    self.recursive_sections(section_names, text, depth, node_level + 1)
                 else:
                     print(self.book_title)
             key.pop()
@@ -149,23 +155,25 @@ class Book:
     def process_simple_book(self) -> None:
         index = self.index
         if self.section_names_lang == "he":
-            section_names = self.sefaria_api.get_name(self.book_title).get("heSectionNames")
+            section_names = self.sefaria_api.get_name(self.book_title).get(
+                "heSectionNames"
+            )
         else:
-            section_names = self.sefaria_api.get_name(self.book_title).get("sectionNames")
-        depth = index['schema']['depth']
+            section_names = self.sefaria_api.get_name(self.book_title).get(
+                "sectionNames"
+            )
+        depth = index["schema"]["depth"]
         text = self.sefaria_api.get_book(self.book_title, self.long_lang)
         self.set_series(text)
         text = text.get("versions")
         if text:
-            text = text[0]['text']
+            text = text[0]["text"]
             if has_value(text):
                 self.recursive_sections(section_names, text, depth, 1)
             else:
                 print(self.book_title)
 
-    def process_node(
-            self, node: dict, key: list | None = None, level: int = 0
-            ) -> None:
+    def process_node(self, node: dict, key: list | None = None, level: int = 0) -> None:
         """
         Process a given node, handling both nested nodes and nested arrays.
         :param node: the current node being processed
@@ -175,7 +183,7 @@ class Book:
         """
         if key is None:
             key = []
-        node_titles = node.get('titles')
+        node_titles = node.get("titles")
         node_title = None
         if node_titles:
             node_title = self.parse_titles(node_titles)
@@ -183,59 +191,73 @@ class Book:
             node_title = self.parse_terms(node["sharedTitle"])
 
         if not node_title:
-            node_title = self.shape[0]["chapters"][self.node_num]["heTitle"] if self.section_names_lang == "he" else self.shape[0]["chapters"][self.node_num]["title"]
+            node_title = (
+                self.shape[0]["chapters"][self.node_num]["heTitle"]
+                if self.section_names_lang == "he"
+                else self.shape[0]["chapters"][self.node_num]["title"]
+            )
             node_title = node_title.split(",")[-1].strip()
 
         if node_title:
             level += 1
-            self.book_content.append(f"<h{min(level, 6)}>{node_title}</h{min(level, 6)}>\n")
-        if node.get('nodes'):  # Process nested nodes
+            self.book_content.append(
+                f"<h{min(level, 6)}>{node_title}</h{min(level, 6)}>\n"
+            )
+        if node.get("nodes"):  # Process nested nodes
             node_key = node["key"]
             key.append(node_key)
-            for sub_node in node['nodes']:
+            for sub_node in node["nodes"]:
                 self.process_node(sub_node, key, level=level)
             key.pop(-1)
         else:  # Process nested arrays
             node_key = node["key"]
-            depth = node.get('depth', 1)
+            depth = node.get("depth", 1)
             if node_key == "default":
                 node_len = self.shape[0]["chapters"][self.node_num]["length"]
                 assert isinstance(node_len, int)
                 key.append(f"1-{node_len}")
                 node_index = ", ".join(key)
-                section_names = self.sefaria_api.get_name(node_index)["heSectionNames"] if self.section_names_lang == "he" else self.sefaria_api.get_name(node_index)["sectionNames"]
+                section_names = (
+                    self.sefaria_api.get_name(node_index)["heSectionNames"]
+                    if self.section_names_lang == "he"
+                    else self.sefaria_api.get_name(node_index)["sectionNames"]
+                )
                 text = self.sefaria_api.get_book(node_index, self.long_lang)
             else:
                 key.append(node_key)
                 node_index = ", ".join(key)
                 # self.book_content.append(f"{self.codes[level][0]}{node_title}{self.codes[level][1]}\n")
-                section_names = self.sefaria_api.get_name(node_index).get("heSectionNames")
+                section_names = self.sefaria_api.get_name(node_index).get(
+                    "heSectionNames"
+                )
                 text = self.sefaria_api.get_book(node_index)
                 # depth = text.get('textDepth', 1)
                 # print(depth)
             self.set_series(text)
             text = text.get("versions")
             if text:
-                text = text[0]['text']
+                text = text[0]["text"]
                 if has_value(text):
-                    self.recursive_sections(section_names, text, depth, level+1)
+                    self.recursive_sections(section_names, text, depth, level + 1)
                 else:
                     print(self.book_title)
             key.pop()
             self.node_num += 1
 
     def recursive_sections(
-            self,
-            section_names: list | None,
-            text: list,
-            depth: int,
-            level: int = 0,
-            add_letter: str = ""
-            ) -> None:
+        self,
+        section_names: list | None,
+        text: list,
+        depth: int,
+        level: int = 0,
+        add_letter: str = "",
+        anchor_ref: list | None = None,
+    ) -> None:
 
-        skip_section_names = (
-            'שורה', 'פירוש', 'פסקה', 'Line', 'Comment', 'Paragraph'
-            )
+        if anchor_ref is None:
+            anchor_ref = []
+
+        skip_section_names = ("שורה", "פירוש", "פסקה", "Line", "Comment", "Paragraph")
         letter_to_add = ""
         """
         Recursively generates section names based on depth and appends to output list.
@@ -245,18 +267,38 @@ class Book:
         :return: None
         """
         if depth == 0 and text != [] and not isinstance(text, bool):
+            assert isinstance(text, str)
+            print(anchor_ref, text)
             self.book_content.append(f"<p>{add_letter}{text}</p>")
         elif not isinstance(text, bool):
+            if depth == 1:
+                assert isinstance(text, list)
             for i, item in enumerate(text, start=1):
-                if item != [] and item != [[]]:
+                if has_value(item):
                     letter = ""
                     if section_names:
-                        letter = to_daf(i) if section_names[-depth] in ('דף',  'Daf') else to_gematria(i)
+                        letter = (
+                            to_daf(i)
+                            if section_names[-depth] in ("דף", "Daf")
+                            else to_gematria(i)
+                        )
                     if depth > 1 and section_names:
-                        self.book_content.append(f"<h{min(level, 6)}>{section_names[-depth]} {letter}</h{min(level, 6)}>\n")
-                    elif section_names and section_names[-depth] not in skip_section_names and letter:
+                        self.book_content.append(
+                            f"<h{min(level, 6)}>{section_names[-depth]} {letter}</h{min(level, 6)}>\n"
+                        )
+                    elif (
+                        section_names
+                        and section_names[-depth] not in skip_section_names
+                        and letter
+                    ):
                         letter_to_add = f"<b>{letter}</b> "
-                self.recursive_sections(section_names, item, depth-1, level+1, letter_to_add)
+                anchor_ref.append(i)
+                self.recursive_sections(
+                    section_names, item,
+                    depth - 1, level + 1,
+                    letter_to_add, anchor_ref
+                )
+                anchor_ref.pop()
 
     def get_links_content(self, book_title: str):
         links = self.sefaria_api.get_links(book_title)
