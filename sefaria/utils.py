@@ -55,3 +55,7 @@ def to_gematria(i: int) -> str:
         s = int_to_gematria(j, gershayim=False)+ ' '
     s = s + int_to_gematria(i, gershayim=False)
     return s
+
+
+def has_value(data: list):
+    return any(has_value(item) if isinstance(item, list) else item for item in data)
