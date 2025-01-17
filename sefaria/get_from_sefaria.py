@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from .sefaria_api import SefariaApi
 from .utils import to_daf, to_gematria, has_value
 
@@ -316,3 +318,33 @@ class Book:
             if i.get("lang") == self.section_names_lang and i.get("primary"):
                 title = i.get("text")
                 return title
+
+    def parse_links(
+            self, links: list[dict[str, str | list | dict]]
+                    ) -> defaultdict[str, defaultdict[str, list[str | list[str]]]]:
+        all_links = defaultdict(lambda: defaultdict(list))
+        for link in links:
+            he_title = None
+            en_title = None
+            link_type = link.get("type")
+            if link_type != "commentary":
+                continue
+            anchor_ref = link.get("anchorRef")
+            if not anchor_ref:
+                continue
+            collective_title = link.get("collectiveTitle")
+            if isinstance(collective_title, dict):
+                he_title = collective_title.get("he")
+                en_title = collective_title.get("en")
+            if he_title is None:
+                he_title = link.get("heTitle")
+            if self.section_names_lang == "he":
+                title = he_title or en_title
+                text = link.get("he") or link.get("text")
+            else:
+                title = en_title or he_title
+                text = link.get("text") or link.get("he")
+            if text:
+                all_links[anchor_ref][title].append(text)
+
+        return all_links

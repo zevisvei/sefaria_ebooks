@@ -1,5 +1,6 @@
 import requests
 
+
 class SefariaApi:
     def __init__(self) -> None:
         self.base_url = "https://www.sefaria.org/api/"
@@ -10,7 +11,7 @@ class SefariaApi:
         response = requests.get(url, headers=self.headers)
         return response.json()
 
-    def get_book(self, book_title:str, lang: str="hebrew") -> dict:
+    def get_book(self, book_title: str, lang: str = "hebrew") -> dict:
         url = f"{self.base_url}v3/texts/{book_title}?version={lang}"
         response = requests.get(url, headers=self.headers)
         return response.json()
@@ -34,7 +35,7 @@ class SefariaApi:
         url = f"{self.base_url}links/{book_title}"
         response = requests.get(url, headers=self.headers)
         return response.json()
-    
+
     def get_terms(self, name: str) -> dict:
         url = f"{self.base_url}terms/{name}"
         response = requests.get(url, headers=self.headers)
