@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from .sefaria_api import SefariaApi
-from .utils import to_daf, to_gematria, has_value
+from .utils import to_daf, to_gematria, has_value, to_eng_daf
 
 
 class Book:
@@ -136,6 +136,7 @@ class Book:
             depth = node["depth"]
             if node["key"] == "default":
                 node_len = self.shape[0]["length"]
+                ref = ", ".join(key)
                 key.append(f"1-{node_len}")
                 node_index = ", ".join(key)
                 text = self.sefaria_api.get_book(node_index, self.long_lang)
@@ -143,13 +144,14 @@ class Book:
 
                 key.append(node["key"])
                 node_index = ", ".join(key)
+                ref = node_index
                 text = self.sefaria_api.get_book(node_index, self.long_lang)
             self.set_series(text)
             text = text.get("versions")
             if text:
                 text = text[0]["text"]
                 if has_value(text):
-                    self.recursive_sections(section_names, text, depth, node_level + 1)
+                    self.recursive_sections(ref, section_names, text, depth, node_level + 1)
                 else:
                     print(self.book_title)
             key.pop()
@@ -171,7 +173,7 @@ class Book:
         if text:
             text = text[0]["text"]
             if has_value(text):
-                self.recursive_sections(section_names, text, depth, 1)
+                self.recursive_sections(self.book_title, section_names, text, depth, 1)
             else:
                 print(self.book_title)
 
@@ -217,6 +219,7 @@ class Book:
             if node_key == "default":
                 node_len = self.shape[0]["chapters"][self.node_num]["length"]
                 assert isinstance(node_len, int)
+                ref = ", ".join(key)
                 key.append(f"1-{node_len}")
                 node_index = ", ".join(key)
                 section_names = (
@@ -228,6 +231,7 @@ class Book:
             else:
                 key.append(node_key)
                 node_index = ", ".join(key)
+                ref = node_index
                 # self.book_content.append(f"{self.codes[level][0]}{node_title}{self.codes[level][1]}\n")
                 section_names = self.sefaria_api.get_name(node_index).get(
                     "heSectionNames"
@@ -240,7 +244,7 @@ class Book:
             if text:
                 text = text[0]["text"]
                 if has_value(text):
-                    self.recursive_sections(section_names, text, depth, level + 1)
+                    self.recursive_sections(ref, section_names, text, depth, level + 1)
                 else:
                     print(self.book_title)
             key.pop()
@@ -248,6 +252,7 @@ class Book:
 
     def recursive_sections(
         self,
+        ref: str,
         section_names: list | None,
         text: list,
         depth: int,
@@ -270,7 +275,8 @@ class Book:
         """
         if depth == 0 and text != [] and not isinstance(text, bool):
             assert isinstance(text, str)
-            print(anchor_ref, text)
+            anchor_ref_address = f"{ref} {":".join(anchor_ref)}"
+            print(anchor_ref_address)
             self.book_content.append(f"<p>{add_letter}{text}</p>")
         elif not isinstance(text, bool):
             if depth == 1:
@@ -294,8 +300,9 @@ class Book:
                         and letter
                     ):
                         letter_to_add = f"<b>{letter}</b> "
-                anchor_ref.append(i)
+                anchor_ref.append(to_eng_daf(i) if section_names[-depth] in ("דף", "Daf") else str(i))
                 self.recursive_sections(
+                    ref,
                     section_names, item,
                     depth - 1, level + 1,
                     letter_to_add, anchor_ref
@@ -321,7 +328,7 @@ class Book:
 
     def parse_links(
             self, links: list[dict[str, str | list | dict]]
-                    ) -> defaultdict[str, defaultdict[str, list[str | list[str]]]]:
+                ) -> defaultdict[str, defaultdict[str, list[str | list[str]]]]:
         all_links = defaultdict(lambda: defaultdict(list))
         for link in links:
             he_title = None
@@ -344,7 +351,7 @@ class Book:
             else:
                 title = en_title or he_title
                 text = link.get("text") or link.get("he")
-            if text:
+            if text and title:
                 all_links[anchor_ref][title].append(text)
 
         return all_links
