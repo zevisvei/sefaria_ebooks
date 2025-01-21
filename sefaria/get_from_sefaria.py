@@ -2,6 +2,8 @@ from collections import defaultdict
 
 from .sefaria_api import SefariaApi
 from .utils import to_daf, to_gematria, has_value, to_eng_daf
+# from .link import Link
+# from .node import Node
 
 
 class Book:
@@ -236,7 +238,7 @@ class Book:
                 section_names = self.sefaria_api.get_name(node_index).get(
                     "heSectionNames"
                 )
-                text = self.sefaria_api.get_book(node_index)
+                text = self.sefaria_api.get_book(node_index, self.long_lang)
                 # depth = text.get('textDepth', 1)
                 # print(depth)
             self.set_series(text)
@@ -259,10 +261,16 @@ class Book:
         level: int = 0,
         add_letter: str = "",
         anchor_ref: list | None = None,
+        links: defaultdict[str, defaultdict[str, list[str | list[str]]]] | None = None
     ) -> None:
 
         if anchor_ref is None:
             anchor_ref = []
+        if links is None and self.get_links:
+            ref_links = f"{ref} {":".join(anchor_ref)}" if anchor_ref else ref
+            links_dict = self.sefaria_api.get_links(ref_links)
+            if links_dict:
+                links = self.parse_links(links_dict)
 
         skip_section_names = ("שורה", "פירוש", "פסקה", "Line", "Comment", "Paragraph")
         letter_to_add = ""
@@ -276,8 +284,16 @@ class Book:
         if depth == 0 and text != [] and not isinstance(text, bool):
             assert isinstance(text, str)
             anchor_ref_address = f"{ref} {":".join(anchor_ref)}"
-            print(anchor_ref_address)
             self.book_content.append(f"<p>{add_letter}{text}</p>")
+            if links and links.get(anchor_ref_address):
+                for key, value in links[anchor_ref_address].items():
+                    self.book_content.append(f"<p>{key}</p>")
+                    for line in value:
+                        if isinstance(line, list):
+                            for i in line:
+                                self.book_content.append(f"<p>{i}</p>")
+                        else:
+                            self.book_content.append(f"<p>{line}</p>")
         elif not isinstance(text, bool):
             if depth == 1:
                 assert isinstance(text, list)
@@ -305,7 +321,8 @@ class Book:
                     ref,
                     section_names, item,
                     depth - 1, level + 1,
-                    letter_to_add, anchor_ref
+                    letter_to_add, anchor_ref,
+                    links
                 )
                 anchor_ref.pop()
 
@@ -327,8 +344,8 @@ class Book:
                 return title
 
     def parse_links(
-            self, links: list[dict[str, str | list | dict]]
-                ) -> defaultdict[str, defaultdict[str, list[str | list[str]]]]:
+        self, links: list[dict[str, str | list | dict] | None]
+            ) -> defaultdict[str, defaultdict[str, list[str | list[str]]]]:
         all_links = defaultdict(lambda: defaultdict(list))
         for link in links:
             he_title = None
