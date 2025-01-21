@@ -20,6 +20,7 @@ class Book:
         self.metadata = {}
         self.lang = lang[:2]
         self.long_lang = lang
+        self.links = defaultdict(lambda: defaultdict(list))
         self.section_names_lang = (self.lang
                                    if self.lang in ("he", "en")
                                    else "en")
@@ -261,16 +262,17 @@ class Book:
         level: int = 0,
         add_letter: str = "",
         anchor_ref: list | None = None,
-        links: defaultdict[str, defaultdict[str, list[str | list[str]]]] | None = None
+        links: bool = False
     ) -> None:
 
         if anchor_ref is None:
             anchor_ref = []
-        if links is None and self.get_links:
+        if links is False and self.get_links:
             ref_links = f"{ref} {":".join(anchor_ref)}" if anchor_ref else ref
             links_dict = self.sefaria_api.get_links(ref_links)
-            if links_dict:
-                links = self.parse_links(links_dict)
+            if links_dict is not None:
+                self.parse_links(links_dict)
+                links = True
 
         skip_section_names = ("שורה", "פירוש", "פסקה", "Line", "Comment", "Paragraph")
         letter_to_add = ""
@@ -345,8 +347,7 @@ class Book:
 
     def parse_links(
         self, links: list[dict[str, str | list | dict] | None]
-            ) -> defaultdict[str, defaultdict[str, list[str | list[str]]]]:
-        all_links = defaultdict(lambda: defaultdict(list))
+            ) -> None:
         for link in links:
             he_title = None
             en_title = None
@@ -369,6 +370,5 @@ class Book:
                 title = en_title or he_title
                 text = link.get("text") or link.get("he")
             if text and title:
-                all_links[anchor_ref][title].append(text)
+                self.links[anchor_ref][title].append(text)
 
-        return all_links
