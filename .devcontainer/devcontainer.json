@@ -1,0 +1,10 @@
+{
+  "name": "Ubuntu Latest",
+  "image": "ubuntu:latest",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {}
+  },
+  "extensions": [
+    "ms-python.python"
+  ]
+}
