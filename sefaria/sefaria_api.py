@@ -32,12 +32,15 @@ class SefariaApi:
         return response.json()
 
     def get_links(self, book_title: str) -> list[dict[str, str | list | dict] | None] | None:
-        url = f"{self.base_url}links/{book_title}"
-        print(book_title)
-        response = requests.get(url, headers=self.headers)
-        print(response.status_code)
-        if response.status_code == 200:
-            return response.json()
+        try:
+            url = f"{self.base_url}links/{book_title}"
+            print(book_title)
+            response = requests.get(url, headers=self.headers)
+            print(response.status_code)
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(e)
 
     def get_terms(self, name: str) -> dict:
         url = f"{self.base_url}terms/{name}"

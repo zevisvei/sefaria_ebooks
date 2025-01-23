@@ -1,10 +1,7 @@
 import re
-#import typing as t
 from hebrew_numbers import int_to_gematria
-
-# https://stackoverflow.com/questions/58400724/type-hint-for-nested-dict
-#JsonType: t.TypeAlias = t.List['JsonValue'] | t.Dict[str, 'JsonValue']
-#JsonValue: t.TypeAlias = str | JsonType
+import json
+import subprocess
 
 
 def recursive_register_categories(
@@ -70,3 +67,35 @@ def to_eng_daf(i) -> str:
 
 def has_value(data: list):
     return any(has_value(item) if isinstance(item, list) else item for item in data)
+
+
+def read_json(file_path: str) -> dict:
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = json.load(f)
+    return content
+
+
+def to_ebook(
+    input_file: str,
+    output_file: str,
+    dict_args: dict[str, str],
+    level1_toc: str = "//h:h1",
+    level2_toc: str = "//h:h2",
+    level3_toc: str = "//h:h3",
+):
+    args = [
+        "ebook-convert",
+        input_file,
+        output_file,
+        f"--level1-toc={level1_toc}",
+        f"--level2-toc={level2_toc}",
+        f"--level3-toc={level3_toc}",
+    ]
+    for key, value in dict_args.items():
+        args.append(f"--{key}={value}")
+    subprocess.run(
+        args,
+        stdout=subprocess.DEVNULL,  # משתיק את הפלט
+        stderr=subprocess.DEVNULL,  # משתיק את השגיאות
+        check=True,
+    )

@@ -1,33 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_file
 from sefaria import sefaria_api, utils, get_from_sefaria
-import subprocess
 import os
-
-
-def to_ebook(
-    input_file: str,
-    output_file: str,
-    dict_args: dict[str, str],
-    level1_toc: str = "//h:h1",
-    level2_toc: str = "//h:h2",
-    level3_toc: str = "//h:h3",
-):
-    args = [
-        "ebook-convert",
-        input_file,
-        output_file,
-        f"--level1-toc={level1_toc}",
-        f"--level2-toc={level2_toc}",
-        f"--level3-toc={level3_toc}",
-    ]
-    for key, value in dict_args.items():
-        args.append(f"--{key}={value}")
-    subprocess.run(
-        args,
-        stdout=subprocess.DEVNULL,  # משתיק את הפלט
-        stderr=subprocess.DEVNULL,  # משתיק את השגיאות
-        check=True,
-    )
 
 
 app = Flask(__name__)
@@ -68,7 +41,7 @@ def run_script():
             f.write(book_content)
         
         # יצירת קובץ EPUB
-        to_ebook(html_file, epub_file, metadata)
+        utils.to_ebook(html_file, epub_file, metadata)
         epub_file = os.path.abspath(f"{file_name}.epub")
         
         # החזרת הקובץ להורדה

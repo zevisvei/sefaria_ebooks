@@ -2,8 +2,6 @@ from collections import defaultdict
 
 from .sefaria_api import SefariaApi
 from .utils import to_daf, to_gematria, has_value, to_eng_daf
-# from .link import Link
-# from .node import Node
 
 
 class Book:
@@ -20,16 +18,17 @@ class Book:
         self.metadata = {}
         self.lang = lang[:2]
         self.long_lang = lang
-        self.links = defaultdict(lambda: defaultdict(list))
         self.section_names_lang = (self.lang
                                    if self.lang in ("he", "en")
                                    else "en")
         self.book_content = []
+        self.all_commentaries = set()
         self.sefaria_api = SefariaApi()
         self.he_title = he_title
         self.categories = categories
         self.shape = self.sefaria_api.get_shape(self.book_title)
         self.get_links = get_links
+        self.links_dict = {}
         self.exists = isinstance(self.shape, list)
         if self.exists:
             self.is_complex = bool(self.shape[0].get("isComplex"))
@@ -262,17 +261,18 @@ class Book:
         level: int = 0,
         add_letter: str = "",
         anchor_ref: list | None = None,
-        links: bool = False
+        links: defaultdict | None = None
     ) -> None:
 
         if anchor_ref is None:
             anchor_ref = []
-        if links is False and self.get_links:
+        if links is None and self.get_links:
             ref_links = f"{ref} {":".join(anchor_ref)}" if anchor_ref else ref
             links_dict = self.sefaria_api.get_links(ref_links)
-            if links_dict is not None:
-                self.parse_links(links_dict)
-                links = True
+            if links_dict:
+                links = self.parse_links(links_dict)
+            elif links_dict is not None:
+                links = {"links": None}
 
         skip_section_names = ("שורה", "פירוש", "פסקה", "Line", "Comment", "Paragraph")
         letter_to_add = ""
@@ -288,14 +288,7 @@ class Book:
             anchor_ref_address = f"{ref} {":".join(anchor_ref)}"
             self.book_content.append(f"<p>{add_letter}{text}</p>")
             if links and links.get(anchor_ref_address):
-                for key, value in links[anchor_ref_address].items():
-                    self.book_content.append(f"<p>{key}</p>")
-                    for line in value:
-                        if isinstance(line, list):
-                            for i in line:
-                                self.book_content.append(f"<p>{i}</p>")
-                        else:
-                            self.book_content.append(f"<p>{line}</p>")
+                self.links_dict[len(self.book_content)] = links[anchor_ref_address]
         elif not isinstance(text, bool):
             if depth == 1:
                 assert isinstance(text, list)
@@ -308,7 +301,7 @@ class Book:
                             if section_names[-depth] in ("דף", "Daf")
                             else to_gematria(i)
                         )
-                    if depth > 1 and section_names:
+                    if depth > 1 and section_names and section_names[-depth] not in skip_section_names:
                         self.book_content.append(
                             f"<h{min(level, 6)}>{section_names[-depth]} {letter}</h{min(level, 6)}>\n"
                         )
@@ -328,9 +321,6 @@ class Book:
                 )
                 anchor_ref.pop()
 
-    def get_links_content(self, book_title: str):
-        links = self.sefaria_api.get_links(book_title)
-
     def parse_terms(self, term: str) -> str | None:
         terms = self.sefaria_api.get_terms(term)
         if terms.get("titles"):
@@ -347,7 +337,8 @@ class Book:
 
     def parse_links(
         self, links: list[dict[str, str | list | dict] | None]
-            ) -> None:
+            ) -> defaultdict[str, defaultdict[str, list[str | list[str]]]]:
+        links_list = defaultdict(lambda: defaultdict(list))
         for link in links:
             he_title = None
             en_title = None
@@ -370,5 +361,22 @@ class Book:
                 title = en_title or he_title
                 text = link.get("text") or link.get("he")
             if text and title:
-                self.links[anchor_ref][title].append(text)
+                links_list[anchor_ref][title].append(text)
+                self.all_commentaries.add(title)
+        return links_list
 
+    def add_links(self, links_to_add: list) -> None:
+        added_lines = 0
+        for index, link in self.links_dict.items():
+            for name in link:
+                if name in links_to_add:
+                    self.book_content.insert(index + added_lines, f'<p style="color: gray;">{name}</p>')
+                    added_lines += 1
+                    for line in link[name]:
+                        if isinstance(line, list):
+                            for sub_line in line:
+                                self.book_content.insert(index + added_lines, f'<p style="font-size: small;">{sub_line}</p>')
+                                added_lines += 1
+                        else:
+                            self.book_content.insert(index + added_lines, f'<p style="font-size: small;">{line}</p>')
+                            added_lines += 1
