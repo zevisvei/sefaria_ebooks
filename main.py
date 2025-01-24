@@ -51,6 +51,8 @@ def run_script():
             conditional=False
         )
     except Exception as e:
+        print(e, request.json)
+        print(list_all_books[book_index])
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         if os.path.exists(html_file):
