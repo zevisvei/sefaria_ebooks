@@ -2,6 +2,7 @@ import re
 from hebrew_numbers import int_to_gematria
 import json
 import subprocess
+from bs4 import BeautifulSoup
 
 
 def recursive_register_categories(
@@ -99,3 +100,37 @@ def to_ebook(
         stderr=subprocess.DEVNULL,  # משתיק את השגיאות
         check=True,
     )
+
+
+def footnotes_to_epub(html_content: str) -> str:
+    soup = BeautifulSoup(html_content, 'html.parser')
+    notes = []
+    for sup_tag in soup.find_all('sup', class_='footnote-marker'):
+        next_tag = sup_tag.find_next_sibling() 
+        if next_tag and next_tag.name == 'i' and 'footnote' in next_tag.get('class', []):
+            note_id = f"note_{len(notes) + 1}"
+            back_note_id = f"back_note_{len(notes) + 1}"
+            sup_a = soup.new_tag("a", id=back_note_id, href=f"#{note_id}", title=sup_tag.text, class_="noteref", role="doc-noteref")
+            sup_a.string = sup_tag.text
+            sup_tag.string = "" 
+            sup_tag.append(sup_a)
+            note_a = soup.new_tag("a", href=f"#{back_note_id}", title=sup_tag.text)
+            note_a.string = f"←{sup_tag.text}"
+            note_span = soup.new_tag("span", id=note_id)
+            note_span.string = next_tag.text
+            note_p = soup.new_tag("p")
+            note_p.append(note_a)
+            note_p.append(note_span)
+            notes.append(note_p)
+            next_tag.extract()
+
+    if notes:
+        h1 = soup.new_tag("h1")
+        h1.string = "הערות שוליים"
+    body_tag = soup.body
+    if body_tag:
+        body_tag.append(h1)
+        for note in notes:
+            body_tag.append(note)
+
+    return str(soup)

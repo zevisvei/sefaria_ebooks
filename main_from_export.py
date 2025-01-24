@@ -1,33 +1,6 @@
 from sefaria.get_from_export import Book
-from sefaria.utils import sanitize_filename
+from sefaria.utils import sanitize_filename, to_ebook, footnotes_to_epub
 import os
-import subprocess
-
-
-def to_ebook(
-    input_file: str,
-    output_file: str,
-    dict_args: dict[str, str],
-    level1_toc: str = "//h:h1",
-    level2_toc: str = "//h:h2",
-    level3_toc: str = "//h:h3",
-):
-    args = [
-        "ebook-convert",
-        input_file,
-        output_file,
-        f"--level1-toc={level1_toc}",
-        f"--level2-toc={level2_toc}",
-        f"--level3-toc={level3_toc}",
-    ]
-    for key, value in dict_args.items():
-        args.append(f"--{key}={value}")
-    subprocess.run(
-        args,
-        stdout=subprocess.DEVNULL,  # משתיק את הפלט
-        stderr=subprocess.DEVNULL,  # משתיק את השגיאות
-        check=True,
-    )
 
 
 def get_book(book_title: str, text_file_path: str, schema_file_path: str, lang: str):
@@ -41,7 +14,6 @@ def get_book(book_title: str, text_file_path: str, schema_file_path: str, lang: 
 
 
 def main(json_folder, schemas_folder, output_folder, lang: str):
-    eroor_list = []
     """
     Process all books in the given folder whose path ends with 'Hebrew/Merged.json'.
     It finds the corresponding schema file in the schemas folder by matching the
@@ -50,7 +22,7 @@ def main(json_folder, schemas_folder, output_folder, lang: str):
     :param folder_path: Path to the folder containing the book files.
     :param schemas_folder: Path to the folder containing the schema files.
     """
-    for root, _,files in os.walk(json_folder):
+    for root, _, files in os.walk(json_folder):
         for file in files:
             file_path = os.path.join(root, file)
             if file_path.lower().endswith(f'{lang}{os.sep}merged.json'):
@@ -66,14 +38,15 @@ def main(json_folder, schemas_folder, output_folder, lang: str):
                     print(output_file_name)
                     book_dir = ' dir="rtl"' if lang == "hebrew" else ""
                     book_content = f'<html lang={lang[:2]}><head><title></title></head><body{book_dir}>{"".join(book_content)}</body></html>'
+                    if "footnote-marker" in book_content:
+                        book_content = footnotes_to_epub(book_content)
                     with open(f'{output_file_name}.html', 'w', encoding='utf-8') as file:
                         file.write(book_content)
                     to_ebook(f"{output_file_name}.html", f"{output_file_name}.epub", metadata)
                     os.remove(f"{output_file_name}.html")
                 except Exception as e:
-                    eroor_list.append(f"{file_path} {e}")
-    with open("error.txt", "w", encoding="utf-8") as f:
-        f.write("\n".join(eroor_list))
+                    with open("error.txt", "a", encoding="utf-8") as f:
+                        f.write(f"{file_path} {e}\n")
 
 
 json_folder = "json"
@@ -82,4 +55,3 @@ output_folder = "output"
 lang = "hebrew"
 main(json_folder=json_folder, schemas_folder=schemas_folder,
      output_folder=output_folder, lang=lang)
-                

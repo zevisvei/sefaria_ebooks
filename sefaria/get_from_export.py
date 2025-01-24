@@ -119,10 +119,12 @@ class Book:
 
     def process_node(self, node: dict, text: list, level: int = 0) -> None:
         node_title = node['heTitle'] if self.section_names_lang == "he" else node["title"]
-        self.book_content.append(f"<h{min(level, 6)}>{node_title}</h{min(level, 6)}>\n")
+        if node_title:
+            self.book_content.append(f"<h{min(level, 6)}>{node_title}</h{min(level, 6)}>\n")
+            level += 1
         if node.get("nodes"):
             for sub_node in node['nodes']:
-                self.process_node(sub_node, text[sub_node['title']] if sub_node['key'] != 'default' else text[''], level=level+1)
+                self.process_node(sub_node, text[sub_node['title']] if sub_node['key'] != 'default' else text[''], level=level)
         else:  # Process nested arrays
             if self.section_names_lang == "he":
                 section_names = node.get(
@@ -133,7 +135,7 @@ class Book:
                     "sectionNames"
                 )
             depth = node.get('depth', 1)
-            self.recursive_sections(section_names, text, depth, level+1)
+            self.recursive_sections(section_names, text, depth, level)
 
     def recursive_sections(
         self,

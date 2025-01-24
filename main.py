@@ -5,7 +5,6 @@ import os
 
 app = Flask(__name__)
 
-# טוען את כל הספרים
 sefaria_api_instance = sefaria_api.SefariaApi()
 all_books = sefaria_api_instance.table_of_contents()
 list_all_books = utils.recursive_register_categories(all_books)
@@ -34,17 +33,16 @@ def run_script():
         book_dir = ' dir="rtl"' if lang == "hebrew" else ""
         book_content = result.process_book()
         book_content = f'<html lang={lang[:2]}><head><title></title></head><body{book_dir}>{"".join(book_content)}</body></html>'
+        if "footnote-marker" in book_content:
+            book_content = utils.footnotes_to_epub(book_content)
         metadata = result.get_metadata()
-        
-        # יצירת קובץ HTML
+
         with open(html_file, "w", encoding="utf-8") as f:
             f.write(book_content)
-        
-        # יצירת קובץ EPUB
+
         utils.to_ebook(html_file, epub_file, metadata)
         epub_file = os.path.abspath(f"{file_name}.epub")
-        
-        # החזרת הקובץ להורדה
+
         return send_file(
             epub_file,
             as_attachment=True,
@@ -62,4 +60,4 @@ def run_script():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8000, debug=True)

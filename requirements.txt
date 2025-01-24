@@ -1,3 +1,4 @@
 python_hebrew_numbers
 requests
 flask
+bs4
