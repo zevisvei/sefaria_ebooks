@@ -48,9 +48,10 @@ class Book:
             "A": {"en": "Amoraim", "he": "אמוראים"},
             "CO": {"en": "Contemporary", "he": "מחברי זמננו"},
         }
-        authors = self.index.get("authors")
-        if authors:
-            self.metadata["authors"] = "&".join(authors)
+        authors = self.index.get("authors", [{}])
+        authors_list = [i.get(self.section_names_lang) for i in authors if i.get(self.section_names_lang) is not None]
+        if authors_list:
+            self.metadata["authors"] = "&".join(authors_list)
 
         if self.section_names_lang == "he" and (
             self.he_title or self.shape[0].get("heBook")
@@ -115,19 +116,20 @@ class Book:
         return self.book_content
 
     def process_complex_and_simple_book(self, node: dict, level: int = 0) -> None:
-        section_names = (
-            self.sefaria_api.get_name(self.book_title)["heSectionNames"]
-            if self.section_names_lang == "he"
-            else self.sefaria_api.get_name(self.book_title)["sectionNames"]
-        )
         nodes = node["nodes"]
         key = [self.book_title]
         for node in nodes:
+            if self.section_names_lang == "he":
+                section_names = node.get("heSectionNames")
+            else:
+                section_names = node.get("sectionNames")
             node_level = level
             node_titles = node.get("titles")
             node_title = None
             if node_titles:
                 node_title = self.parse_titles(node_titles)
+            if node_title is None and node.get("heTitle" if self.section_names_lang == "he" else "title"):
+                node_title = node.get("heTitle" if self.section_names_lang == "he" else "title")
             if node_title is None and node.get("sharedTitle"):
                 node_title = self.parse_terms(node["sharedTitle"])
             if node_title:
@@ -161,13 +163,9 @@ class Book:
     def process_simple_book(self) -> None:
         index = self.index
         if self.section_names_lang == "he":
-            section_names = self.sefaria_api.get_name(self.book_title).get(
-                "heSectionNames"
-            )
+            section_names = index["schema"].get("heSectionNames")
         else:
-            section_names = self.sefaria_api.get_name(self.book_title).get(
-                "sectionNames"
-            )
+            section_names = index.get("sectionNames")
         depth = index["schema"]["depth"]
         text = self.sefaria_api.get_book(self.book_title, self.long_lang)
         self.set_series(text)
@@ -193,6 +191,8 @@ class Book:
         node_title = None
         if node_titles:
             node_title = self.parse_titles(node_titles)
+        if node_title is None and node.get("heTitle" if self.section_names_lang == "he" else "title"):
+            node_title = node.get("heTitle" if self.section_names_lang == "he" else "title")
         if node_title is None and node.get("sharedTitle"):
             node_title = self.parse_terms(node["sharedTitle"])
 
@@ -224,24 +224,20 @@ class Book:
                 ref = ", ".join(key)
                 key.append(f"1-{node_len}")
                 node_index = ", ".join(key)
-                section_names = (
-                    self.sefaria_api.get_name(node_index)["heSectionNames"]
-                    if self.section_names_lang == "he"
-                    else self.sefaria_api.get_name(node_index)["sectionNames"]
-                )
                 text = self.sefaria_api.get_book(node_index, self.long_lang)
             else:
                 key.append(node_key)
                 node_index = ", ".join(key)
                 ref = node_index
                 # self.book_content.append(f"{self.codes[level][0]}{node_title}{self.codes[level][1]}\n")
-                section_names = self.sefaria_api.get_name(node_index).get(
-                    "heSectionNames"
-                )
                 text = self.sefaria_api.get_book(node_index, self.long_lang)
                 # depth = text.get('textDepth', 1)
                 # print(depth)
             self.set_series(text)
+            if self.section_names_lang == "he":
+                section_names = node.get("heSectionNames")
+            else:
+                section_names = node.get("sectionNames")
             text = text.get("versions")
             if text:
                 text = text[0]["text"]
@@ -284,42 +280,42 @@ class Book:
         :return: None
         """
         if depth == 0 and text != [] and not isinstance(text, bool):
-            assert isinstance(text, str)
-            anchor_ref_address = f"{ref} {":".join(anchor_ref)}"
-            self.book_content.append(f"<p>{add_letter}{text}</p>")
-            if links and links.get(anchor_ref_address):
-                self.links_dict[len(self.book_content)] = links[anchor_ref_address]
+            if isinstance(text, list):
+                for line in text:
+                    self.recursive_sections(ref, section_names, line, depth, level, letter_to_add, anchor_ref, links)
+            else:
+                anchor_ref_address = f"{ref} {":".join(anchor_ref)}"
+                self.book_content.append(f"<p>{add_letter}{text}</p>")
+                if links and links.get(anchor_ref_address):
+                    self.links_dict[len(self.book_content)] = links[anchor_ref_address]
         elif not isinstance(text, bool):
-            if depth == 1:
-                assert isinstance(text, list)
-            for i, item in enumerate(text, start=1):
-                if has_value(item):
-                    letter = ""
-                    if section_names:
-                        letter = (
-                            to_daf(i)
-                            if section_names[-depth] in ("דף", "Daf")
-                            else to_gematria(i)
-                        )
-                    if depth > 1 and section_names and section_names[-depth] not in skip_section_names:
-                        self.book_content.append(
-                            f"<h{min(level, 6)}>{section_names[-depth]} {letter}</h{min(level, 6)}>\n"
-                        )
-                    elif (
-                        section_names
-                        and section_names[-depth] not in skip_section_names
-                        and letter
-                    ):
-                        letter_to_add = f"<b>{letter}</b> "
-                anchor_ref.append(to_eng_daf(i) if section_names[-depth] in ("דף", "Daf") else str(i))
-                self.recursive_sections(
-                    ref,
-                    section_names, item,
-                    depth - 1, level + 1,
-                    letter_to_add, anchor_ref,
-                    links
-                )
-                anchor_ref.pop()
+            if depth == 1 and isinstance(text, str):
+                self.recursive_sections(ref, section_names, text, depth - 1, level, letter_to_add, anchor_ref, links)
+            else:
+                for i, item in enumerate(text, start=1):
+                    if has_value(item):
+                        letter = ""
+                        if section_names:
+                            letter = (
+                                to_daf(i)
+                                if section_names[-depth] in ("דף", "Daf")
+                                else to_gematria(i)
+                            )
+                        if depth > 1 and section_names and section_names[-depth] not in skip_section_names:
+                            self.book_content.append(
+                                f"<h{min(level, 6)}>{section_names[-depth]} {letter}</h{min(level, 6)}>\n"
+                            )
+                        elif section_names and section_names[-depth] not in skip_section_names and letter:
+                            letter_to_add = f"<b>{letter}</b> "
+                    anchor_ref.append(to_eng_daf(i) if section_names[-depth] in ("דף", "Daf") else str(i))
+                    self.recursive_sections(
+                        ref,
+                        section_names, item,
+                        depth - 1, level + 1,
+                        letter_to_add, anchor_ref,
+                        links
+                    )
+                    anchor_ref.pop()
 
     def parse_terms(self, term: str) -> str | None:
         terms = self.sefaria_api.get_terms(term)
