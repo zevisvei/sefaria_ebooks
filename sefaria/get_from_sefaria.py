@@ -124,10 +124,11 @@ class Book:
             else:
                 section_names = node.get("sectionNames")
             node_level = level
-            node_titles = node.get("titles")
+            node_titles = node.get("titles", {})
+            he_title, en_title = self.parse_titles(node_titles)
             node_title = None
             if node_titles:
-                node_title = self.parse_titles(node_titles)
+                node_title = he_title if self.section_names_lang == "he" else en_title
             if node_title is None and node.get("heTitle" if self.section_names_lang == "he" else "title"):
                 node_title = node.get("heTitle" if self.section_names_lang == "he" else "title")
             if node_title is None and node.get("sharedTitle"):
@@ -145,8 +146,7 @@ class Book:
                 node_index = ", ".join(key)
                 text = self.sefaria_api.get_book(node_index, self.long_lang)
             else:
-
-                key.append(node["key"])
+                key.append(en_title)
                 node_index = ", ".join(key)
                 ref = node_index
                 text = self.sefaria_api.get_book(node_index, self.long_lang)
@@ -187,10 +187,11 @@ class Book:
         """
         if key is None:
             key = []
-        node_titles = node.get("titles")
         node_title = None
+        node_titles = node.get("titles", {})
+        he_title, en_title = self.parse_titles(node_titles)
         if node_titles:
-            node_title = self.parse_titles(node_titles)
+            node_title = he_title if self.section_names_lang == "he" else en_title
         if node_title is None and node.get("heTitle" if self.section_names_lang == "he" else "title"):
             node_title = node.get("heTitle" if self.section_names_lang == "he" else "title")
         if node_title is None and node.get("sharedTitle"):
@@ -211,7 +212,7 @@ class Book:
             )
         if node.get("nodes"):  # Process nested nodes
             node_key = node["key"]
-            key.append(node_key)
+            key.append(en_title)
             for sub_node in node["nodes"]:
                 self.process_node(sub_node, key, level=level)
             key.pop(-1)
@@ -226,7 +227,7 @@ class Book:
                 node_index = ", ".join(key)
                 text = self.sefaria_api.get_book(node_index, self.long_lang)
             else:
-                key.append(node_key)
+                key.append(en_title)
                 node_index = ", ".join(key)
                 ref = node_index
                 # self.book_content.append(f"{self.codes[level][0]}{node_title}{self.codes[level][1]}\n")
@@ -325,11 +326,15 @@ class Book:
                     title = i.get("text")
                     return title
 
-    def parse_titles(self, titles: dict) -> str | None:
+    def parse_titles(self, titles: dict) -> tuple[str, str]:
+        he_title = ""
+        en_title = ""
         for i in titles:
-            if i.get("lang") == self.section_names_lang and i.get("primary"):
-                title = i.get("text")
-                return title
+            if i.get("lang") == "he" and i.get("primary"):
+                he_title = i.get("text")
+            elif i.get("lang") == "en" and i.get("primary"):
+                en_title = i.get("text")
+        return he_title, en_title
 
     def parse_links(
         self, links: list[dict[str, str | list | dict] | None]

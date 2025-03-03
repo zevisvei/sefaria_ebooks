@@ -1,15 +1,23 @@
 import re
+from typing import TypedDict, List
+
 from hebrew_numbers import int_to_gematria
 import json
 import subprocess
 from bs4 import BeautifulSoup
 
 
+class Category(TypedDict):
+    he_title: str
+    en_title: str
+    path: List[str]
+
+
 def recursive_register_categories(
     index: list | dict,
     data: list[dict[str, str | list[str]]] | None = None,
     tree: list[str] | None = None,
-) -> list[dict[str, str | list[str]]]:
+) -> list[Category]:
     if tree is None:
         tree = []
     if data is None:
