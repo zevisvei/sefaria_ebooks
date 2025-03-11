@@ -1,3 +1,4 @@
+<a href="https://www.sefaria.org/texts" title="ספריא" target="_blank"><img src="images/safaria_logo.png" alt="ספריא" width="308" height="160"/></a>
 <div align="right">
     <a href="#sefaria-ebooks-1">🇺🇸 English</a> | 
     <a href="#sefaria-ebooks">🇮🇱 עברית</a>
@@ -156,6 +157,3 @@ git clone https://huggingface.co/Sefaria/database_export
 # Option 2 - GitHub repository
 git clone https://github.com/Sefaria/Sefaria-Export.git
 ```
-
-
-

@@ -33,7 +33,7 @@ def main(json_folder, schemas_folder, output_folder, lang: str):
                     schema_file_name = os.path.join(schemas_folder, title + '.json')
                     book_content, metadata, categories = get_book(title, text_file, schema_file_name, lang)
                     output_path = [sanitize_filename(i) for i in categories]
-                    os.makedirs(os.path.join(output_folder, *output_path),exist_ok=True)
+                    os.makedirs(os.path.join(output_folder, *output_path), exist_ok=True)
                     output_file_name = os.path.join(output_folder, *output_path, sanitize_filename(metadata["title"]))
                     print(output_file_name)
                     book_dir = ' dir="rtl"' if lang == "hebrew" else ""
